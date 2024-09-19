@@ -55,7 +55,7 @@ class IaaS:
     def __str__(self):
         names = []
         for vm_type in self.__vm_types:
-            name.append(vm_type.name)
+            names.append(vm_type.name)
         return "IaaS => id: {}, boot_time: {}, bandwidth: {}, cycle_time: {}, vm_types: {}".format(
             self.id, self.boot_time, self.bandwidth, self.cycle_time, names
         )

@@ -110,7 +110,7 @@ class DQNScheduler:
         self.next_reward = torch.zeros([batch_size, 1])
 
         # device: cpu / gpu
-        self.device = torch.device("cpu" if torch.cuda.is_available() else "cuda")
+        self.device = torch.device("cpu" if torch.cuda.is_available() else "cuda:0")
         print("DQN: device is", self.device)
 
         self.dqn_net = Network(state_dim, action_num, self.device).to(self.device)
@@ -588,8 +588,13 @@ class DQNScheduler:
         # is_running = torch.FloatTensor(samples["is_running"].reshape(-1, 1)).to(self.device)
         # reward2 = torch.FloatTensor(samples["rewards2"].reshape(-1, 1)).to(self.device)
 
+        # gather 操作，基于智能体在每个状态下实际选择的动作（由 action_index 指定），
+        # 提取出这些动作对应的 Q 值，存储在 curr_q_value 中。
         curr_q_value = self.dqn_net(state_batch).gather(1, action_index)
+
         # # DQN
+        # 用于估计从当前状态转移到下一个状态后的预期回报，并根据当前奖励和未来回报更新 Q 值。
+        # 折扣因子，决定了未来奖励的权重
         if self.discount_factor:
             next_q_value = (
                 self.dqn_target_net(next_state_batch)
@@ -603,6 +608,8 @@ class DQNScheduler:
             # for a in range(len(reward)):
             #     print(a,target[a], reward[a], next_q_value[a])
 
+        # 如果没有折扣因子（即 γ = 0），目标 Q 值就只等于即时奖励 reward。
+        # 这种情况下，算法只关心当前的奖励，不考虑未来的回报。
         else:
             target = (reward).to(self.device)
 

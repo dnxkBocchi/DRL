@@ -71,12 +71,12 @@ class Workflow:
     def getTaskNumber(self):
         return len(self.tasks);
 
-    def getPoolTaskNumber(self):
-        number = 0;
-        for task in tasks:
-            if(task.status == TaskStatus.none):
-                number += 1;
-        return number;
+    # def getPoolTaskNumber(self):
+    #     number = 0;
+    #     for task in tasks:
+    #         if(task.status == TaskStatus.none):
+    #             number += 1;
+    #     return number;
             
     @staticmethod 
     def reset():
