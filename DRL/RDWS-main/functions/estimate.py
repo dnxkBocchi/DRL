@@ -6,13 +6,14 @@ def exeTime(task, vm):
 
 
 def exeCost(task, vm):
-    a = task.length / (vm.mips if vm.isVMType() else vm.type.mips)
+    # a = task.length / (vm.mips if vm.isVMType() else vm.type.mips)
+    # 调用 exeTime 计算任务执行时间，再除以 vm.cycle_time 以确定执行任务需要多少个周期，并用 math.ceil 向上取整。
     if vm.isVMType():
         return math.ceil(exeTime(task, vm) / vm.cycle_time) * vm.cycle_price
 
     else:
-        exe_time = max(exeTime(task, vm) - vm.gap2EndCycle(), 0)
-        return math.ceil(exe_time / vm.type.cycle_time) * vm.type.cycle_price
+        # exe_time = max(exeTime(task, vm) - vm.gap2EndCycle(), 0)
+        return math.ceil(exeTime(task, vm) / vm.type.cycle_time) * vm.type.cycle_price
 
 
 def transferTime(size, bandwidth):

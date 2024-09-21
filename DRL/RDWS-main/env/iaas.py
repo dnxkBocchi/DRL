@@ -17,6 +17,24 @@ class IaaS:
         self.provisioned_vm_list = []
         self.released_vm_list = []
 
+    def setVirtualMachineTypeNums(self, boot_time, cycle_time):
+        self.addVirtualMachineType("m3_medium", 3, 0.067, boot_time, cycle_time)
+        self.addVirtualMachineType("m3_large", 4, 0.087, boot_time, cycle_time)
+        self.addVirtualMachineType("m3_xlarge", 5, 0.107, boot_time, cycle_time)
+        self.addVirtualMachineType("m4_large", 6.5, 0.126, boot_time, cycle_time)
+        self.addVirtualMachineType("m4_xlarge", 7.5, 0.126, boot_time, cycle_time)
+        self.addVirtualMachineType("m4_2xlarge", 9.5, 0.126, boot_time, cycle_time)
+        self.addVirtualMachineType("m5_2xlarge", 13, 0.266, boot_time, cycle_time)
+        self.addVirtualMachineType("m5_3xlarge", 18, 0.266, boot_time, cycle_time)
+        self.addVirtualMachineType("m5_4xlarge", 22, 0.266, boot_time, cycle_time)
+        self.addVirtualMachineType("m6_xlarge", 26, 0.504, boot_time, cycle_time)
+        self.addVirtualMachineType("m6_2xlarge", 40, 0.504, boot_time, cycle_time)
+        self.addVirtualMachineType("m7_2xlarge", 45, 0.504, boot_time, cycle_time)
+        self.addVirtualMachineType("m7_3xlarge", 53.5, 1.008, boot_time, cycle_time)
+        self.addVirtualMachineType("m8_xlarge", 70.5, 1.008, boot_time, cycle_time)
+        self.addVirtualMachineType("m9_xlarge", 100.5, 1.008, boot_time, cycle_time)
+        self.addVirtualMachineType("m9_2xlarge", 124.5, 2.520, boot_time, cycle_time)
+
     def provideVirtualMachine(self, vm_type, off_idle=False):
         vm = VirtualMachine(self.env, vm_type, off_idle=off_idle, debug=self.debug)
         self.provisioned_vm_list.append(vm)

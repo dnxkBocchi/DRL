@@ -36,9 +36,12 @@ class Task:
         self.not_real_input_files = []
         self.output_files = []
         self.level = -1
+        # 关键路径截止时间,即任务的最早完成时间
         self.deadline_cp = 0
 
+        # 任务进入工作流的准备时间
         self.ready_time = 0
+        # 任务开始调度的时间
         self.schedule_time = 0
         self.vqueue_time = 0
         self.cpu_disposal_time = 0

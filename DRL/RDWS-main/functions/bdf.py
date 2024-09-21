@@ -40,7 +40,7 @@ def createDeadline(
 # 为工作流 wf 计算预算（budget）。
 # 预算是基于工作流中所有任务在最便宜的虚拟机类型上运行所需的最低成本，并通过乘以一个随机生成或固定的预算因子来得到。
 def createBudget(
-    wf, cheapest_vm_type, min_bf=1, max_bf=20, factor_int=True, constant_bf=0
+    wf, cheapest_vm_type, min_bf=1, max_bf=10, factor_int=True, constant_bf=0
 ):
     # Compute lowest budget for workflow, without data transfer time
     total_time = 0
@@ -154,18 +154,18 @@ def calBFT_LFT(task, now_time, vm_list=[], fast_run=0, slow_run=0):
     return BFT, LFT
 
 
-def threeDeadlineDD(task, vm_types_list, now_time):
-    fastest_type = max(vm_types_list, key=attrgetter("mips"))
-    task_len = estimate.totalInputTransferTime(task, fastest_type) + estimate.exeTime(
-        task, fastest_type
-    )
+# def threeDeadlineDD(task, vm_types_list, now_time):
+#     fastest_type = max(vm_types_list, key=attrgetter("mips"))
+#     task_len = estimate.totalInputTransferTime(task, fastest_type) + estimate.exeTime(
+#         task, fastest_type
+#     )
 
-    workflow = tlist[0].workflow
-    remained_deadline = workflow.deadline + workflow.submit_time - now_time
-    if remained_deadline < 0:
-        remained_deadline = 0
-    task.deadline = task_height * remained_deadline / task.height_len
+#     workflow = tlist[0].workflow
+#     remained_deadline = workflow.deadline + workflow.submit_time - now_time
+#     if remained_deadline < 0:
+#         remained_deadline = 0
+#     task.deadline = task_height * remained_deadline / task.height_len
 
-    BFT, LFT = calBFT_LFT(task, vm_list)
-    task.soft_deadline = BFT
-    task.hard_deadline = LFT
+#     BFT, LFT = calBFT_LFT(task, vm_list)
+#     task.soft_deadline = BFT
+#     task.hard_deadline = LFT

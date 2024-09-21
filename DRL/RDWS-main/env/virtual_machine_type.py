@@ -15,7 +15,7 @@ class VirtualMachineType:
         self.mips = mips
         # 表示每个计算周期的费用，反映计算资源的价格。
         self.cycle_price = price
-        # 表示一个计算周期所需的时间 ？？？
+        # 表示一个计算周期所需的时间
         self.cycle_time = cycle_time
         # 表示启动延迟，模拟计算资源启动所需的时间。
         self.startup_delay = startup_delay
