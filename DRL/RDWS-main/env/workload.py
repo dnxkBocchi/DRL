@@ -102,11 +102,12 @@ class Workload:
             if isinstance(self.workflow_path, list):
                 wf_path = random.choice(self.workflow_path)
             elif os.path.isdir(self.workflow_path):
-                dax = random.choice(os.listdir(self.workflow_path))
-
-                while dax[0] == ".":
-                    dax = random.choice(os.listdir(self.workflow_path))
-
+                if not hasattr(self, "cached_dax_files"):
+                    # 如果没有缓存的文件列表，先缓存起来
+                    self.cached_dax_files = [
+                        f for f in os.listdir(self.workflow_path) if f[0] != "."
+                    ]
+                dax = random.choice(self.cached_dax_files)
                 wf_path = self.workflow_path + "/" + dax
             else:
                 yield self.workflow_submit_pipe.put(self.workflow_path)

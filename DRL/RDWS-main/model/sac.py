@@ -159,7 +159,7 @@ class Critic(nn.Module):
 
 class SAC(nn.Module):
     def __init__(
-        self, state_dim, action_num, batch_size, buffer_size, beta, device, debug
+        self, state_dim, action_num, batch_size, buffer_size, hidden_size, lr, device
     ):
         super(SAC, self).__init__()
         self.state_dim = state_dim
@@ -167,24 +167,28 @@ class SAC(nn.Module):
         self.batch_size = batch_size
         self.buffer_size = buffer_size
         self.device = device
-        self.debug = debug
         self.gamma = 0.96
         self.tau = 1e-2
-        hidden_size = 256
-        learning_rate = 1e-3
+        self.hidden_size = hidden_size
+        self.learning_rate = lr
         self.clip_grad_param = 1
 
         self.target_entropy = -action_num  # -dim(A)
         self.log_alpha = torch.tensor([0.0], requires_grad=True)
         self.alpha = self.log_alpha.exp().detach()
-        self.alpha_optimizer = optim.Adam(params=[self.log_alpha], lr=learning_rate)
+        self.alpha_optimizer = optim.Adam(
+            params=[self.log_alpha], lr=self.learning_rate
+        )
+        self.buffer = ReplayBuffer(
+            buffer_size=self.buffer_size,
+            batch_size=self.batch_size,
+            device=self.device,
+        )
 
         # Actor Network
 
-        self.actor_local = Actor(state_dim, action_num, hidden_size).to(device)
-        self.actor_optimizer = optim.Adam(
-            self.actor_local.parameters(), lr=learning_rate
-        )
+        self.net = Actor(state_dim, action_num, hidden_size).to(device)
+        self.actor_optimizer = optim.Adam(self.net.parameters(), lr=self.learning_rate)
 
         # Critic Network (w/ Target Network)
 
@@ -199,8 +203,12 @@ class SAC(nn.Module):
         self.critic2_target = Critic(state_dim, action_num, hidden_size).to(device)
         self.critic2_target.load_state_dict(self.critic2.state_dict())
 
-        self.critic1_optimizer = optim.Adam(self.critic1.parameters(), lr=learning_rate)
-        self.critic2_optimizer = optim.Adam(self.critic2.parameters(), lr=learning_rate)
+        self.critic1_optimizer = optim.Adam(
+            self.critic1.parameters(), lr=self.learning_rate
+        )
+        self.critic2_optimizer = optim.Adam(
+            self.critic2.parameters(), lr=self.learning_rate
+        )
 
     def get_action(self, state, epsilon):
         # state = torch.from_numpy(state).float().to(self.device)
@@ -209,11 +217,11 @@ class SAC(nn.Module):
             return random.randint(0, self.action_num - 1)
 
         with torch.no_grad():
-            action = self.actor_local.get_det_action(state)
+            action = self.net.get_det_action(state)
         return action.numpy()
 
     def calc_policy_loss(self, states, alpha):
-        _, action_probs, log_pis = self.actor_local.evaluate(states)
+        _, action_probs, log_pis = self.net.evaluate(states)
 
         q1 = self.critic1(states)
         q2 = self.critic2(states)
@@ -246,7 +254,7 @@ class SAC(nn.Module):
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
         with torch.no_grad():
-            _, action_probs, log_pis = self.actor_local.evaluate(next_states)
+            _, action_probs, log_pis = self.net.evaluate(next_states)
             Q_target1_next = self.critic1_target(next_states)
             Q_target2_next = self.critic2_target(next_states)
             Q_target_next = action_probs * (
@@ -295,7 +303,7 @@ class SAC(nn.Module):
         # 保存模型的 state_dict
         torch.save(
             {
-                "actor_state_dict": self.actor_local.state_dict(),
+                "actor_state_dict": self.net.state_dict(),
                 "critic1_state_dict": self.critic1.state_dict(),
                 "critic2_state_dict": self.critic2.state_dict(),
                 "critic1_target_state_dict": self.critic1_target.state_dict(),
@@ -308,3 +316,21 @@ class SAC(nn.Module):
             },
             path,
         )
+
+    def load_model(self, path):
+        # 加载保存的模型字典
+        checkpoint = torch.load(path)
+        self.net.load_state_dict(checkpoint["actor_state_dict"])
+        self.critic1.load_state_dict(checkpoint["critic1_state_dict"])
+        self.critic2.load_state_dict(checkpoint["critic2_state_dict"])
+        self.critic1_target.load_state_dict(checkpoint["critic1_target_state_dict"])
+        self.critic2_target.load_state_dict(checkpoint["critic2_target_state_dict"])
+        self.actor_optimizer.load_state_dict(checkpoint["actor_optimizer_state_dict"])
+        self.critic1_optimizer.load_state_dict(
+            checkpoint["critic1_optimizer_state_dict"]
+        )
+        self.critic2_optimizer.load_state_dict(
+            checkpoint["critic2_optimizer_state_dict"]
+        )
+        self.alpha_optimizer.load_state_dict(checkpoint["alpha_optimizer_state_dict"])
+        self.log_alpha = checkpoint["log_alpha"]
