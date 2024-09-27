@@ -3,12 +3,10 @@ import random
 import seaborn as sbn
 import simpy
 
-from env import Workload
-from env.dax_parser import parseDAX
-from env.task import TaskStatus
-from env.workflow import Workflow
+from env.workload import Workload, Workflow
+from env.task import TaskStatus, parseDAX
 from env.virtual_machine import VirtualMachine
-from env.ncp_network import create_network_graph
+from env.ncp_network import create_ncp_graph
 from schedule import estimate
 
 sbn.set_style("darkgrid", {"axes.grid": True, "axes.edgecolor": "black"})
@@ -51,8 +49,6 @@ def runEnv(
 
     # 是工作流的到达率
     wf_arrival_rate = arrival_rate
-    # sec
-    bandwidth = 20000000  # (2**20); # Byte   #20 MBps
 
     # 使用 SimPy 库设置一个模拟环境，其中包含不同的管道（Store）和资源（Resource 和 Container）
     # 用于模拟工作流提交、任务完成和虚拟机释放的流程。
@@ -74,15 +70,15 @@ def runEnv(
     tasks_ready_queue = []
     nvms = []
 
-    NCP_network_graph = create_network_graph(node_nums=action_num)
-    all_vms = NCP_network_graph.get_nodes()
-    for vm_type in all_vms:
-        vm = VirtualMachine(sim, vm_type, off_idle=True, debug=debug)
+    NCP_graph, NCPs = create_ncp_graph(node_nums=action_num)
+    NCPs_id = NCP_graph.get_nodes()
+    for ncp_type in NCPs:
+        vm = VirtualMachine(sim, ncp_type, NCP_graph, off_idle=True, debug=debug)
         vm.start()
         nvms.append(vm)
 
-    fastest_vm_type = max(all_vms, key=lambda v: v.compute_capacity)
-    cheapest_vm_type = min(all_vms, key=lambda v: v.cycle_price)
+    fastest_ncp_type = max(NCPs, key=lambda v: v.compute_capacity)
+    cheapest_ncp_type = min(NCPs, key=lambda v: v.cycle_price)
     setRandSeed(seed * 5)
     workload = Workload(
         sim,
@@ -113,10 +109,10 @@ def runEnv(
                 task.status = TaskStatus.pool
                 # 保存传输时间，表示这个任务从其父任务获取输入文件所需的最大传输时间。
                 task.rank_trans = estimate.maxParentInputTransferTime(
-                    task, fastest_vm_type, NCP_network_graph
+                    task, fastest_ncp_type
                 )
                 # 表示任务在该虚拟机类型上运行所需的时间。
-                task.rank_exe = estimate.exeTime(task, fastest_vm_type)
+                task.rank_exe = estimate.exeTime(task, fastest_ncp_type)
                 # 表示工作流在调度和执行这些任务之前仍需要的总执行时间。
                 wf.remained_length += task.rank_exe
 
@@ -129,8 +125,8 @@ def runEnv(
             setRandSeed(seed + int(sim.now))
 
             # 创建工作流的截止日期以及预算
-            estimate.createDeadline(wf, fastest_vm_type, constant_df=constant_df)
-            estimate.createBudget(wf, cheapest_vm_type, constant_bf=constant_bf)
+            estimate.createDeadline(wf, fastest_ncp_type, constant_df=constant_df)
+            estimate.createBudget(wf, cheapest_ncp_type, constant_bf=constant_bf)
 
             workflow_pool.append(wf)
             remained_tasks += len(wf.tasks) - 2
@@ -254,24 +250,22 @@ def runEnv(
     # 为任务列表中的每个任务计算其在不同虚拟机（VM）上的执行时间和执行成本，
     # 并将这些信息存储在任务对象的 vref_time_cost 属性中。
     # task.fast_run：任务上最快运行的虚拟机的执行时间
-    def estimateRunTimeCost(task_list, vm_list, now_time):
+    def estimateRunTimeCost(task_list):
         for task in task_list:
             # 计算所有虚拟机的时间成本
             task.vref_time_cost = {}
-            for v in vm_list:
+            for ncp in NCPs:
                 # 结合任务的输入文件传输时间以及虚拟机的等待时间。
                 a = (
-                    estimate.exeTime(task, v)
-                    + estimate.maxParentInputTransferTime(task, v, NCP_network_graph)
-                    + v.waitingTime()
+                    estimate.exeTime(task, ncp)
+                    + estimate.maxParentInputTransferTime(task, ncp)
+                    + ncp.waitingTime()
                 )
-                if debug:
-                    print(NCP_network_graph.get_edges_bandwidth(vm_list[1], vm_list[0]))
                 if a < 0:
                     print("$" * 80)
-                b = estimate.exeCost(task, v)
+                b = estimate.exeCost(task, ncp)
                 # dict.update() 方法会更新字典，如果字典中已经存在相同的键，则覆盖旧值，如果不存在该键，则添加新键值对。
-                task.vref_time_cost.update({v: [a, b]})
+                task.vref_time_cost.update({ncp: [a, b]})
 
             # 确保任务优先选择执行时间最短的虚拟机，并重新生成一个有序的字典
             task.vref_time_cost = dict(
@@ -298,12 +292,12 @@ def runEnv(
                 )
 
     # 选择VM
-    def chooseVM(vlist, choosed_task):
-        random.shuffle(vlist)
+    def chooseVM(ncp_list, choosed_task):
+        random.shuffle(ncp_list)
         choosed_vm = taskScheduler(
-            len(vlist) == action_num,
+            len(ncp_list) == action_num,
             choosed_task,
-            vlist,
+            ncp_list,
             sim.now,
             remained_tasks == 0 and workload_finished,
         )
@@ -312,7 +306,7 @@ def runEnv(
     # 找到所选的nvm，并且更新其他vm的管道
     def updateVMs(choosed_vm):
         for i in range(len(nvms)):
-            if nvms[i].type == choosed_vm:
+            if nvms[i].ncp == choosed_vm:
                 nvm = nvms[i]
                 break
         # 设置虚拟机的管道，用于在任务完成后通知任务调度器，以及在虚拟机资源释放后进行通信。
@@ -334,10 +328,10 @@ def runEnv(
             # 通常用于异步或并发编程，尤其在模拟调度系统中，这些操作可以帮助管理任务的就绪状态和同步执行。
             yield ready_task_counter.get(1)
             # 计算工作流中的每个任务截止时间
-            threeDeadline(tasks_ready_queue, fastest_vm_type, sim.now)
+            threeDeadline(tasks_ready_queue, fastest_ncp_type, sim.now)
             while len(tasks_ready_queue):
                 # 计算任务在最快运行的虚拟机的完成时间以及成本
-                estimateRunTimeCost(tasks_ready_queue, all_vms, sim.now)
+                estimateRunTimeCost(tasks_ready_queue)
 
                 # prioritizeTasks should be call after that the deadline distributed
                 # 对任务列表排序,按照截止时间-最快时间
@@ -364,12 +358,12 @@ def runEnv(
                     all_task_num += len(w.tasks) - 2
 
                 # 从 choosed_task.vref_time_cost 中选择虚拟机，并随机化选择的顺序,选择前6个。
-                vlist = list(choosed_task.vref_time_cost.keys()) + []
-                choosed_vm = chooseVM(vlist, choosed_task)
+                ncp_list = list(choosed_task.vref_time_cost.keys()) + []
+                choosed_vm = chooseVM(ncp_list, choosed_task)
                 # 直接将vm的容量不够情况，重新选择
                 # while choosed_task.input_size > choosed_vm.storage_capacity:
                 #     capacity_falty += 1
-                #     choosed_vm = chooseVM(vlist, choosed_task)
+                #     choosed_vm = chooseVM(ncp_list, choosed_task)
                 #     if debug:
                 #         print(
                 #             "choose_vm id:{}, choosed_vm:{}, choose_task:{}".format(
@@ -378,15 +372,15 @@ def runEnv(
                 #                 choosed_task.input_size,
                 #             )
                 #         )
-                choosed_task.vm_ref = choosed_vm
 
                 if debug:
                     print(
-                        "[{:.2f} - {:10s}] {} task choosed for scheduling. L:{} .".format(
+                        "[{:.2f} - {:10s}] {} task choosed for scheduling. L:{} to nvm: {}.".format(
                             sim.now,
                             "Scheduler",
                             choosed_task.id,
                             choosed_task.length,
+                            choosed_vm.node_id,
                         )
                     )
 
@@ -397,15 +391,6 @@ def runEnv(
                 # 清空任务的 vref_time_cost，表示任务已经被分配给虚拟机
                 choosed_task.vref_time_cost = {}
 
-                if debug:
-                    print(
-                        "[{:.2f} - {:10s}] NVM {} is choosed for task {}.".format(
-                            sim.now,
-                            "Scheduler",
-                            choosed_vm.node_id,
-                            choosed_task.id,
-                        )
-                    )
                 nvm = updateVMs(choosed_vm)
                 # 将任务 choosed_task 提交到虚拟机 nvm 上进行处理
                 yield sim.process(nvm.submitTask(choosed_task))

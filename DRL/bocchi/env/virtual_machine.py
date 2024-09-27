@@ -7,14 +7,15 @@ from .task import TaskStatus
 class VirtualMachine:
     counter = 0
 
-    def __init__(self, env, vm_type, off_idle=False, debug=False):
+    def __init__(self, env, ncp_type, NCP_network_graph, off_idle=False, debug=False):
         VirtualMachine.counter += 1
-        self.id = "vm" + str(vm_type.node_id)
+        self.id = "vm" + str(ncp_type.node_id)
         self.num = VirtualMachine.counter + 0
         self.debug = debug
         self.env = env
         self.off_idle = off_idle
-        self.type = vm_type
+        self.ncp = ncp_type
+        self.g = NCP_network_graph
         self.provision_time = env.now
 
         # --------------------------
@@ -44,7 +45,7 @@ class VirtualMachine:
     # 生成器，用于启动虚拟机（VM）的过程
     def __start(self):
 
-        yield self.env.timeout(self.type.startup_delay)
+        yield self.env.timeout(self.ncp.startup_delay)
         if self.debug:
             print("[{:.2f} - {:10s}] Start.".format(self.env.now, self.id))
         self.start_time = self.env.now
@@ -56,7 +57,7 @@ class VirtualMachine:
     # 检查 VM 是否处于空闲状态
     def __checkIdle(self):
         while self.running:
-            yield self.env.timeout(self.type.cycle_time)
+            yield self.env.timeout(self.ncp.cycle_time)
             if self.isIdle() and self.workload_finished:
                 # if self.vm_release_announce_pipe != None:
                 self.vm_release_announce_pipe.put(self)
@@ -101,7 +102,9 @@ class VirtualMachine:
                     total_size += file.size
                     files.remove(file)
 
-            transfer_time.append(v().type.transferTime4Size(total_size))
+            transfer_time.append(
+                v().ncp.transferTime4Size(total_size, self.ncp, self.g)
+            )
 
         # 确定最大传输时间
         trans_time = max(transfer_time) if transfer_time else 0
@@ -110,7 +113,7 @@ class VirtualMachine:
         task.estimate_transfer_time = max(trans_time - self.waitingTime(), 0)
 
         task.estimate_finish_time = (
-            self.env.now + task.estimate_waiting_time + self.type.exeTime(task)
+            self.env.now + task.estimate_waiting_time + self.ncp.exeTime(task)
         )
         self.finish_time = task.estimate_finish_time
 
@@ -126,7 +129,7 @@ class VirtualMachine:
                 )
             )
 
-        yield self.env.timeout(self.type.exeTime(task))
+        yield self.env.timeout(self.ncp.exeTime(task))
 
         task.finish_time = self.env.now
         # task.status = TaskStatus.done;
@@ -179,16 +182,16 @@ class VirtualMachine:
         return (
             0
             if self.running
-            else self.type.startup_delay - (self.env.now - self.provision_time)
+            else self.ncp.startup_delay - (self.env.now - self.provision_time)
         )
 
     def gap2EndCycle(self):
-        return self.type.cycle_time - (self.finish_time % self.type.cycle_time)
+        return self.ncp.cycle_time - (self.finish_time % self.ncp.cycle_time)
 
     def isProvisionedVM(self):
         return True
 
-    def isVMType(self):
+    def isVMncp(self):
         return False
 
     def isIdle(self):
@@ -197,11 +200,6 @@ class VirtualMachine:
     @staticmethod
     def reset():
         VirtualMachine.counter = 0
-
-    def __str__(self):
-        return "VM (id: {}, type: {}, mips: {}, price: {})".format(
-            self.id, self.type.node_id, self.type.mips, self.type.cycle_price
-        )
 
     def __repr__(self):
         return "{}".format(self.id)

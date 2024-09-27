@@ -12,6 +12,7 @@ import copy
 import torch.nn.functional as F
 from collections import deque, namedtuple
 import random
+import datetime
 
 # from dqn.buffer import ReplayBuffer
 
@@ -300,6 +301,8 @@ class SAC(nn.Module):
             )
 
     def save_model(self, path):
+        time_str = str(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
+        model_path = "logs/" + time_str + "/dqn_model" + path
         # 保存模型的 state_dict
         torch.save(
             {
@@ -314,7 +317,7 @@ class SAC(nn.Module):
                 "alpha_optimizer_state_dict": self.alpha_optimizer.state_dict(),
                 "log_alpha": self.log_alpha,
             },
-            path,
+            model_path,
         )
 
     def load_model(self, path):

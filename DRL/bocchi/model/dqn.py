@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from env.task import TaskStatus
+import datetime
 
 
 class ReplayBuffer:
@@ -175,7 +176,9 @@ class DQN:
         return self.updateModel(example)
 
     def save_model(self, path):
-        torch.save(self.net.state_dict(), path)
+        time_str = str(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
+        model_path = "logs/" + time_str + "/dqn_model" + path
+        torch.save(self.net.state_dict(), model_path)
 
     def load_model(self, path):
         self.net.load_state_dict(torch.load(path))

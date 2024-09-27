@@ -17,25 +17,20 @@ def transferTime(size, bandwidth):
     return size / bandwidth
 
 
-def trans_time(size, vm1, vm2, g):
-    return size / g.get_edges_bandwidth(vm1, vm2)
-
-
 # 计算给定任务从其父任务传输输入文件所需的最大时间
-def maxParentInputTransferTime(task, vm, g):
+def maxParentInputTransferTime(task, vm):
     transfer_size = 0
     # 遍历当前任务的输入文件 task.input_files，检查这些文件是否存在于父任务 p 的输出文件 p.output_files 中。
     # 如果是，将该文件的大小 f.size 累加到 a 中。
     for p in task.pred:
         a = 0
         for f in task.input_files:
-            if f in p.output_files and p.vm_ref is not None:
-                a += trans_time(f.size, p.vm_ref, vm, g)
+            if f in p.output_files:
+                a += f.size
         transfer_size = a if a > transfer_size else transfer_size
 
     # 计算并返回最大传输时间
-    # return transferTime(transfer_size, vm.bandwidth)
-    return transfer_size
+    return transferTime(transfer_size, vm.bandwidth)
 
 
 def setUpwardRank(task, rank):

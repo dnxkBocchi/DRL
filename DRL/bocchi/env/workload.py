@@ -1,10 +1,7 @@
 import os
 import random
 
-import matplotlib.pyplot as plt
 import numpy
-
-from .workflow import Workflow
 
 
 class Workload:
@@ -56,22 +53,6 @@ class Workload:
         # 这意味着 __run() 方法会被调度执行，并能够在仿真中与其他进程和事件交互。
         # __run() 方法实际上并不会立即被调用。它只是被传递给 env.process() 方法，并注册为一个 SimPy 进程。
         env.process(self.__run())
-
-    def showDelayHistogram(self):
-        # Density histogram
-        plt.hist(self.delays, color="lavender", edgecolor="black", bins=int(180 / 7))
-        plt.title("Density Histogram of Workflows Arrival Delay")
-        plt.xlabel("Delay")
-        plt.ylabel("Workflows Number")
-        plt.show()
-
-    def showSubmitTimeHistogram(self):
-        # Density histogram
-        plt.hist(self.__times, color="lavender", edgecolor="black", bins=int(180 / 7))
-        plt.title("Density Histogram of Workflows Arrival Time")
-        plt.xlabel("Time")
-        plt.ylabel("Workflows Number")
-        plt.show()
 
     def __poissonDistInterval(self):
         # k = 0 and lambda = wf_per_second
@@ -148,6 +129,73 @@ class Workload:
         return "Workload (id: {}, workflow_path: {}, arrival_rate: {})".format(
             self.id, self.workflow_path, self.arrival_rate
         )
+
+    def __repr__(self):
+        return "{}".format(self.id)
+
+
+class Workflow:
+    counter = 0
+
+    def __init__(self, tasks, files=None, path="", submit_time=0, union=False):
+        Workflow.counter += 1
+        self.id = "wf" + str(Workflow.counter)
+        self.path = path
+        self.user = "not important in this implementation!"
+
+        self.fastest_exe_time = 0
+        self.deadline_factor = 0
+        self.cheapest_exe_cost = 0
+        self.budget_factor = 0
+
+        self.deadline = 0
+        self.budget = 0
+        self.used_budget = 0
+        self.submit_time = submit_time
+
+        self.estimate_cost = 0
+        self.remained_length = 0
+
+        self.levels = []
+
+        self.finished_tasks = []
+        self.new_ready_tasks = 1
+
+        self.tasks = tasks
+        self.files = files
+
+        self.exit_task = None
+        self.entry_task = None
+
+        self.cost = 0
+        self.makespan = 0
+
+        for task in tasks:
+            self.remained_length += task.length
+            task.setWorkflow(self)
+
+            if task.isEntryTask():
+                self.entry_task = task
+            elif task.isExitTask():
+                self.exit_task = task
+
+            for input_file in task.input_files:
+                input_file.consumer_tasks_id.append(task.id)
+
+            for output_file in task.output_files:
+                output_file.producer_task_id = task.id
+
+            # print(task.id, task.height_len)
+
+    def getTaskNumber(self):
+        return len(self.tasks)
+
+    @staticmethod
+    def reset():
+        Workflow.counter = 0
+
+    def __str__(self):
+        return "Workflow (id: {}, path: {})".format(self.id, self.path)
 
     def __repr__(self):
         return "{}".format(self.id)

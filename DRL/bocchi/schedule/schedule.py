@@ -3,6 +3,7 @@ import datetime
 
 import matplotlib.pyplot as plt
 import torch
+import os
 from model.dqn import DQN
 
 
@@ -221,6 +222,14 @@ class Scheduler:
 
         return vm_list[action]
 
+    def save_hyperparameters(self, args):
+        time_str = str(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
+        file_path = "logs/" + time_str + "/hyperparameters.txt"
+        with open(file_path, "w") as file:
+            file.write("Hyperparameters:\n")
+            for key, value in vars(args).items():
+                file.write(f"{key}: {value}\n")
+
     def trainPlotFinal(
         self,
         mean_makespan=[],
@@ -229,7 +238,10 @@ class Scheduler:
         succes_budget_rate=[],
         succes_both_rate=[],
     ):
-        time_str = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M "))
+        time_str = str(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
+        log_dir = "logs/" + time_str + "/"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
         print("final pictures")
 
         if mean_cost:
@@ -237,7 +249,7 @@ class Scheduler:
             plt.plot(mean_cost, "-o", linewidth=1, markersize=2)
             plt.xlabel("Episode")
             plt.ylabel("Cost")
-            plt.savefig("logs/" + time_str + "_cost.png", facecolor="w")
+            plt.savefig(log_dir + "_cost.png", facecolor="w")
             # transparent=False
             plt.show()
             plt.clf()
@@ -247,7 +259,7 @@ class Scheduler:
             plt.plot(mean_makespan, "-o", linewidth=1, markersize=2)
             plt.xlabel("Episode")
             plt.ylabel("Makespan")
-            plt.savefig("logs/" + time_str + "_makespan.png", facecolor="w")
+            plt.savefig(log_dir + "_makespan.png", facecolor="w")
             # transparent=False
             plt.show()
             plt.clf()
@@ -257,7 +269,7 @@ class Scheduler:
             plt.plot(succes_budget_rate, "-o", linewidth=1, markersize=2)
             plt.xlabel("Episode")
             plt.ylabel("Cost Rate")
-            plt.savefig("logs/" + time_str + "_bsr.png", facecolor="w")
+            plt.savefig(log_dir + "_bsr.png", facecolor="w")
             # transparent=False
             plt.show()
             plt.clf()
@@ -267,7 +279,7 @@ class Scheduler:
             plt.plot(succes_deadline_rate, "-o", linewidth=1, markersize=2)
             plt.xlabel("Episode")
             plt.ylabel("Time Rate")
-            plt.savefig("logs/" + time_str + "_dsr.png", facecolor="w")
+            plt.savefig(log_dir + "_dsr.png", facecolor="w")
             # transparent=False
             plt.show()
             plt.clf()
@@ -277,7 +289,7 @@ class Scheduler:
             plt.plot(succes_both_rate, "-o", linewidth=1, markersize=2)
             plt.xlabel("Episode")
             plt.ylabel("Success Rate")
-            plt.savefig("logs/" + time_str + "_both.png", facecolor="w")
+            plt.savefig(log_dir + "_both.png", facecolor="w")
             # transparent=False
             plt.show()
             plt.clf()

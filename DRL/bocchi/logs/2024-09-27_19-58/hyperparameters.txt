@@ -1,0 +1,17 @@
+Hyperparameters:
+random_seed: 50
+buffer_size: 1000
+batch_size: 512
+hidden_size: 128
+target_update: 100
+action_num: 16
+state_dim: 54
+arrival_rate: 0.0016666666666666668
+device: cuda:0
+episode_number: 10
+wf_number: 10
+beta: 0.6
+discount_factor: 0.8
+lr: 0.001
+l2_weight_decay: 0.0001
+debug: False
